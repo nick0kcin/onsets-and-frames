@@ -1,8 +1,10 @@
+from typing import Optional
+
 import numpy as np
 import torch
 
 
-def extract_notes(onsets, frames, velocity, onset_threshold=0.5, frame_threshold=0.5):
+def extract_notes(onsets, frames, velocity: Optional = None, onset_threshold=0.5, frame_threshold=0.5):
     """
     Finds the note timings based on the onsets and frames information
 
@@ -38,7 +40,7 @@ def extract_notes(onsets, frames, velocity, onset_threshold=0.5, frame_threshold
 
         while onsets[offset, pitch].item() or frames[offset, pitch].item():
             if onsets[offset, pitch].item():
-                velocity_samples.append(velocity[offset, pitch].item())
+                velocity_samples.append(velocity[offset, pitch].item()if velocity else 1)
             offset += 1
             if offset == onsets.shape[0]:
                 break

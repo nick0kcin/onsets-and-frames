@@ -2,6 +2,7 @@ import json
 import os
 from abc import abstractmethod
 from glob import glob
+from pathlib import Path
 
 import numpy as np
 import soundfile
@@ -10,6 +11,34 @@ from tqdm import tqdm
 
 from .constants import *
 from .midi import parse_midi
+
+
+class MelFramesDataset(Dataset):
+    def __init__(self, folder_with_chunks: Path, length: int = -1, device: str = DEFAULT_DEVICE, pad: int = 172):
+        self.chunk_filenames = list(folder_with_chunks.glob("*.npy"))
+        self.device = device
+        self.pad = pad
+        self.len = length if length > 0 else len(self.chunk_filenames)
+
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, item):
+        data = np.load(str(self.chunk_filenames[item % len(self.chunk_filenames)]))
+        audio = data[:128, :]
+        labels = data[128:, :]
+        result = dict(path=item, audio=audio.T, label=labels.T)
+        result['audio'] = result['audio'].astype(np.float32) / 1000
+        result['onset'] = (result['label'] == 3).astype(np.float32)
+        result['offset'] = (result['label'] == 1).astype(np.float32)
+        result['frame'] = (result['label'] > 1).astype(np.float32)
+        mask_label = (result['label'] >= -0.5).sum(-1).nonzero()[0]
+        # mask_audio = (np.absolute(result['audio']) >= 1e-09).sum(-1).nonzero()[0]
+        result["gt_shift"] = np.array([self.pad, result["audio"].shape[0] - self.pad])
+        # result["shift"] = -1
+        result["full_gt"] = np.array(float(mask_label.min() == 0))
+        return result
+
 
 
 class PianoRollAudioDataset(Dataset):
